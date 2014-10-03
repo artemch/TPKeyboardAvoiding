@@ -142,6 +142,24 @@ static const int kStateKey;
     return NO;
 }
 
+- (BOOL)TPKeyboardAvoiding_focusPrevTextField {
+    UIView *firstResponder = [self TPKeyboardAvoiding_findFirstResponderBeneathView:self];
+    if ( !firstResponder ) {
+        return NO;
+    }
+    
+    CGFloat minY = 0;
+    UIView *view = nil;
+    [self TPKeyboardAvoiding_findTextFieldBeforeTextField:firstResponder beneathView:self minY:&minY foundView:&view];
+    
+    if ( view ) {
+        [view performSelector:@selector(becomeFirstResponder) withObject:nil afterDelay:0.0];
+        return YES;
+    }
+    
+    return NO;
+}
+
 -(void)TPKeyboardAvoiding_scrollToActiveTextField {
     TPKeyboardAvoidingState *state = self.keyboardAvoidingState;
     
@@ -188,6 +206,27 @@ static const int kStateKey;
             }
         } else {
             [self TPKeyboardAvoiding_findTextFieldAfterTextField:priorTextField beneathView:childView minY:minY foundView:foundView];
+        }
+    }
+}
+
+- (void)TPKeyboardAvoiding_findTextFieldBeforeTextField:(UIView*)priorTextField beneathView:(UIView*)view minY:(CGFloat*)minY foundView:(UIView**)foundView {
+    // Search recursively for text field or text view below priorTextField
+    CGFloat priorFieldOffset = CGRectGetMinY([self convertRect:priorTextField.frame fromView:priorTextField.superview]);
+    for ( UIView *childView in view.subviews ) {
+        if ( childView.hidden ) continue;
+        if ( ([childView isKindOfClass:[UITextField class]] || [childView isKindOfClass:[UITextView class]]) && childView.isUserInteractionEnabled) {
+            CGRect frame = [self convertRect:childView.frame fromView:view];
+            if ( childView != priorTextField
+                && CGRectGetMinY(frame) <= priorFieldOffset
+                && CGRectGetMinY(frame) > *minY &&
+                !(frame.origin.y == priorTextField.frame.origin.y
+                  && frame.origin.x > priorTextField.frame.origin.x) ) {
+                    *minY = CGRectGetMinY(frame);
+                    *foundView = childView;
+                }
+        } else {
+            [self TPKeyboardAvoiding_findTextFieldBeforeTextField:priorTextField beneathView:childView minY:minY foundView:foundView];
         }
     }
 }
